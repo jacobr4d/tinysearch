@@ -1,14 +1,18 @@
 package com.jacobr4d.crawler;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -40,7 +44,6 @@ public class Crawler {
 	public static int THREADS = 500;
 	public static int MAX_FRONTIER_SIZE = 1000;
 	public int maxDocSizeMB;
-	int maxNumDocs;
 	Repository repo;
 	
 	/* STATE */
@@ -57,23 +60,18 @@ public class Crawler {
 	public Set<String> stopwords = new HashSet<String>();
 	public PorterStemmer stemmer = new PorterStemmer();
 	Index index;
+	FileWriter hitFileWriter;
+	
 	
     /* Constructor */
-  	public Crawler(String startURL, String maxSizeMB, String maxNumDocs, String repoPath, String indexPath) {
-  		this.maxDocSizeMB = Integer.valueOf(maxSizeMB);
-  		this.maxNumDocs = Integer.valueOf(maxNumDocs);
-		this.repo = new Repository(repoPath);
-		urlFrontier.add(new URLInfo(startURL));
+  	public Crawler(String maxSizeMB, String seedPath, String repoPath, String indexPath, String hitsPath) throws IOException, URISyntaxException {
 		
 		/* Indexer */
-		try {
-			stopwords = Files.lines(Paths.get(getClass().getResource("/crawler/nltkstopwords").toURI()))
-					.collect(Collectors.toSet());
-        } catch(Exception e) {
-            e.printStackTrace();
-        }
-		logger.info(stopwords.toString());
+		stopwords = Files.lines(Paths.get("input/stopwords")).collect(Collectors.toSet());
 		this.index = new Index(indexPath);
+		if (!new File(hitsPath).getParentFile().exists() && !new File(hitsPath).getParentFile().mkdirs())
+			throw new RuntimeException("unable to make dir " + new File(hitsPath).getParentFile());
+		this.hitFileWriter = new FileWriter(hitsPath);
 		
 		Spark.port(45555);
 		Spark.get("/", (req, res) -> {
@@ -93,6 +91,22 @@ public class Crawler {
 	    	html.append("</html>");
 	    	return html.toString();
 		});	
+		
+		/* CRAWLER */
+		this.maxDocSizeMB = Integer.valueOf(maxSizeMB);
+		this.repo = new Repository(repoPath);
+		
+		List<String> seedURLs = Files.lines(Paths.get("input/seed")).collect(Collectors.toList());
+		for (String seedURL : seedURLs) {
+			try {
+				urlFrontier.add(new URLInfo(seedURL));
+			} catch (RuntimeException e) {
+				e.printStackTrace();
+				continue;
+			}
+		}
+		System.out.println(urlFrontier);
+		
 		for (int i = 0; i < THREADS; i++) {
 			Worker worker = new Worker(this);
 			worker.start();
@@ -100,7 +114,7 @@ public class Crawler {
 	}
 
 	/* shut down gracefully and exit process */
-	public void shutdown() {	
+	public void shutdown() throws IOException {	
 		quit = true;
 		while (workersExited.get() < THREADS)
 			try {
@@ -112,6 +126,7 @@ public class Crawler {
 		
 		this.repo.close();
 		this.index.close();
+		this.hitFileWriter.close();
 		
 		/* DUMP STATE FOR DEBUGGING */
 		logger.debug("URLFRONTIER");
@@ -314,6 +329,11 @@ public class Crawler {
 				invertedHit.word = stemmer.stem(word);
 				invertedHit.url = url.toString();
 				index.putInvertedHit(invertedHit);
+				try {
+					hitFileWriter.write(word + "." + url + "\n");
+				} catch (IOException e) {
+					logger.error(e);
+				}
 				hitCount.incrementAndGet();
 			}
 			
@@ -359,10 +379,10 @@ public class Crawler {
 		}
 	}
 	
-	public static void main(String args[]) throws IOException {
+	public static void main(String args[]) throws IOException, URISyntaxException {
 
         if (args.length != 5) {
-            logger.info("Usage: Crawler [startURL] [maxDocSizeMB] [numFilesToindex] [repoPath] [indexPath]");
+            logger.info("Usage: crawler [maxsizemb] [seed] [repo] [index] [hits]");
             System.exit(1);
         }
 

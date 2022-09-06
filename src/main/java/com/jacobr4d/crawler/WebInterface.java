@@ -35,7 +35,7 @@ public class WebInterface {
 		this.dbPath = dbPath;
 		this.staticFilesPath = staticFilesPath;
 		db = new Repository(dbPath);
-		this.index = new Index("index");
+		this.index = new Index("output/index");
 		
 		/* set up spark server */
 		Spark.staticFiles.externalLocation(staticFilesPath);

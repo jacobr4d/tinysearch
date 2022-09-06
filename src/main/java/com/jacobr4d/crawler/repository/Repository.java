@@ -30,12 +30,8 @@ public class Repository {
 	public Repository(String envPath) {
 		this.envPath = envPath;
 		
-		/* make storage dir if doesn't exist */
-		File dir = new File(envPath);
-		if (!dir.exists()) {
-			if (!dir.mkdir())
-				throw new RuntimeException("berkeleyDatabase: unable to make dir " + dir);
-		}
+		if (!new File(envPath).exists() && !new File(envPath).mkdirs())
+			throw new RuntimeException("bdb unable to make dir " + envPath);
 		
 		env = new Environment((new File(envPath)), new EnvironmentConfig().setAllowCreate(true));
 		store = new EntityStore(env, "store", new StoreConfig().setAllowCreate(true));
