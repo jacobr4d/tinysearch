@@ -1,0 +1,6 @@
+.DS_Store
+*.log
+log*
+/index
+/repository
+/target

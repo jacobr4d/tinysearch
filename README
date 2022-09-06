@@ -1,0 +1,42 @@
+Full name:  Jacob Glenn
+SEAS login: jacobrad	
+
+Which features did you implement? 
+  Entire Assignment
+
+Did you complete any extra-credit tasks? If so, which ones?
+  No
+
+Any special instructions for building and running your solution?
+  - Note: I wrote a test script called verify.sh to test my solution
+    - Usage:
+      /* clear database if it exists */      
+      rm -rf database 
+      /* run web server (with default params, will work)*/
+      mvn exec:java@web
+      /* in separate terminal */
+      ./verify.sh        <--- registers user with username admin and password pass, 
+                              creates many channels for testing,
+                              does all this through assignment API as if you did it 
+                              on your browser, but using cURL
+      < stop web server (e.g. by pressing enter in terminal) >
+      /* run crawler (1 or more times) */
+      mvn exec:java@crawler
+      < wait for crawler to finish or stop it early by pressing enter > 
+      /* run web server */
+      mvn exec:java@web
+      < manually browse around logging in as (admin, pass), to see what documents matched >
+      < if there are no matches to Middle East for example, try running crawler more than once>
+
+Did you personally write _all_ the code you are submitting
+(other than code from the course web page)?
+  [X] Yes
+  [ ] No
+
+Did you copy any code from the Internet, or from classmates?
+  [ ] Yes
+  [X] No
+
+Did you collaborate with anyone on this assignment?
+  [ ] Yes
+  [X] No
