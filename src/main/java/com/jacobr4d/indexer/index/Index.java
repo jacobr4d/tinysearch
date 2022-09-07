@@ -21,8 +21,10 @@ public class Index {
 	public SecondaryIndex<String, Long, InvertedHit> invertedHitsByWord;
 	
 	public PrimaryIndex<Long, TermFrequency> termFrequencyIndex;
+	public SecondaryIndex<String, Long, TermFrequency> termFrequencyByWordUrl;
 	
 	public PrimaryIndex<Long, InverseDocumentFrequency> inverseDocumentFrequencyIndex;
+	public SecondaryIndex<String, Long, InverseDocumentFrequency> inverseDocumentFrequencyByWord;
 	
 	public Index(String envPath) {
 		this.envPath = envPath;
@@ -38,8 +40,10 @@ public class Index {
 		invertedHitsByWord = store.getSecondaryIndex(invertedHitIndex, String.class, "word");
 		
 		termFrequencyIndex = store.getPrimaryIndex(Long.class, TermFrequency.class);
+		termFrequencyByWordUrl = store.getSecondaryIndex(termFrequencyIndex, String.class, "wordUrl");
 		
 		inverseDocumentFrequencyIndex = store.getPrimaryIndex(Long.class, InverseDocumentFrequency.class);
+		inverseDocumentFrequencyByWord = store.getSecondaryIndex(inverseDocumentFrequencyIndex, String.class, "word");
 	}
 
 	public void close() {
@@ -60,7 +64,6 @@ public class Index {
 		return invertedHitsByWord.keys();
 	}
 	
-	
 	/* other */
 	
 	public void putTermFrequency(TermFrequency tf) {
@@ -69,6 +72,15 @@ public class Index {
 	
 	public void putInverseDocumentFrequency(InverseDocumentFrequency idf) {
 		inverseDocumentFrequencyIndex.putNoReturn(idf);
+	}
+	
+	/* get */
+	public double getTermFrequency(String word, String url) {
+		return Double.valueOf(termFrequencyByWordUrl.get(word + " " + url).frequency);
+	}
+	
+	public double getInverseDocumentFrequency(String word) {
+		return Double.valueOf(inverseDocumentFrequencyByWord.get(word).inverseDocumentFrequency);
 	}
 	
 }

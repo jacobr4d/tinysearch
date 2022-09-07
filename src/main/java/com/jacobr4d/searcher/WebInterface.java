@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -56,14 +55,17 @@ public class WebInterface {
 			} finally {
 				hits.close();
 			}
-			Stream<String> urls = urlList.stream();
 			
-			/* determine score */
+			System.out.println(urlList);
 			
-			
-			
-			
-			urls.close();
+			/* determine scores */
+			List<String> outputs = new ArrayList<String>();
+			for (String url : urlList) {
+				double tf = index.getTermFrequency(words[0], url);
+				double idf = index.getInverseDocumentFrequency(words[0]);
+				double score = tf * idf;
+				outputs.add("" + score + " " + url);
+			}
 			
 			
 			/* build response */
@@ -72,15 +74,28 @@ public class WebInterface {
 			html.append("<head>");
 			html.append("</head>");
 			html.append("<body>");
+			html.append("Query: " + words[0]);
 			html.append("<ul>");
 			
-			
+			outputs.stream()
+	        .sorted((a, b) -> {
+	        	String[] wordsA = a.split("\\s+");
+	        	String[] wordsB = b.split("\\s+");
+	        	Double scoreA = Double.valueOf(wordsA[0]);
+	        	Double scoreB = Double.valueOf(wordsB[0]);
+	        	return scoreB.compareTo(scoreA);
+	        })
+	        .forEach((output) -> {
+				html.append("<li>");
+				html.append(output);
+				html.append("</li>");
+	        });
 			
 			html.append("</ul>");
 			html.append("</body>");
 			html.append("</html>");
         	res.type("text/html");
-    		return "Query: " + words[0];
+    		return html.toString();
     	});
 	}
 	
