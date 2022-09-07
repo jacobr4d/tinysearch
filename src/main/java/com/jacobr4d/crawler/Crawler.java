@@ -20,7 +20,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import opennlp.tools.stemmer.PorterStemmer;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -32,17 +31,16 @@ import com.jacobr4d.crawler.utils.HashUtils;
 import com.jacobr4d.crawler.utils.HttpUtils;
 import com.jacobr4d.crawler.utils.RobotsInfo;
 import com.jacobr4d.crawler.utils.URLInfo;
-import com.jacobr4d.indexer.index.Index;
-import com.jacobr4d.indexer.index.InvertedHit;
 
+import opennlp.tools.stemmer.PorterStemmer;
 import spark.Spark;
 
 public class Crawler {
 	private static final Logger logger = LogManager.getLogger(Crawler.class);
 	
 	/* FIELDS */
-	public static int THREADS = 500;
-	public static int MAX_FRONTIER_SIZE = 1000;
+	public static int THREADS = 50;
+	public static int MAX_FRONTIER_SIZE = 500;
 	public int maxDocSizeMB;
 	Repository repo;
 	
@@ -59,7 +57,7 @@ public class Crawler {
 	public AtomicInteger hitCount = new AtomicInteger(0);
 	public Set<String> stopwords = new HashSet<String>();
 	public PorterStemmer stemmer = new PorterStemmer();
-	Index index;
+//	Index index;
 	FileWriter hitFileWriter;
 	
 	
@@ -67,8 +65,8 @@ public class Crawler {
   	public Crawler(String maxSizeMB, String seedPath, String repoPath, String indexPath, String hitsPath) throws IOException, URISyntaxException {
 		
 		/* Indexer */
-		stopwords = Files.lines(Paths.get("input/stopwords")).collect(Collectors.toSet());
-		this.index = new Index(indexPath);
+		this.stopwords = Files.lines(Paths.get("input/stopwords")).collect(Collectors.toSet());
+//		this.index = new Index(indexPath);
 		if (!new File(hitsPath).getParentFile().exists() && !new File(hitsPath).getParentFile().mkdirs())
 			throw new RuntimeException("unable to make dir " + new File(hitsPath).getParentFile());
 		this.hitFileWriter = new FileWriter(hitsPath);
@@ -105,7 +103,7 @@ public class Crawler {
 				continue;
 			}
 		}
-		System.out.println(urlFrontier);
+		logger.info(urlFrontier);
 		
 		for (int i = 0; i < THREADS; i++) {
 			Worker worker = new Worker(this);
@@ -125,7 +123,7 @@ public class Crawler {
 			}
 		
 		this.repo.close();
-		this.index.close();
+//		this.index.close();
 		this.hitFileWriter.close();
 		
 		/* DUMP STATE FOR DEBUGGING */
@@ -325,12 +323,12 @@ public class Crawler {
 				if (stopwords.contains(word)) {
 					continue;
 				}
-				InvertedHit invertedHit = new InvertedHit();
-				invertedHit.word = stemmer.stem(word);
-				invertedHit.url = url.toString();
-				index.putInvertedHit(invertedHit);
+//				InvertedHit invertedHit = new InvertedHit();
+//				invertedHit.word = stemmer.stem(word);
+//				invertedHit.url = url.toString();
+//				index.putInvertedHit(invertedHit);
 				try {
-					hitFileWriter.write(word + "." + url + "\n");
+					hitFileWriter.write(word + " " + url + "\n");
 				} catch (IOException e) {
 					logger.error(e);
 				}

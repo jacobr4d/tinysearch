@@ -1,7 +1,6 @@
 package com.jacobr4d.mapreduce.stormlite.spout;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Map;
@@ -35,15 +34,13 @@ public class ReadInputSpout implements IRichSpout {
         if (!config.containsKey("storageDir"))
         	throw new RuntimeException("readInputBolt doesn't know storage dir");
         
-        if (!config.containsKey("inputDir"))
-        	throw new RuntimeException("readInputBolt doesn't know inputDir");
+        if (!config.containsKey("inputFile"))
+        	throw new RuntimeException("readInputBolt doesn't know inputFile");
     	
     	this.collector = collector;
         
         try {
-            File dir = new File(config.get("storageDir") + "/" + config.get("inputDir"));
-            String[] inputFiles = dir.list();
-            reader = new BufferedReader(new FileReader(config.get("storageDir") + "/" + config.get("inputDir") + "/" + inputFiles[0]));
+            reader = new BufferedReader(new FileReader(config.get("storageDir") + "/" + config.get("inputFile")));
         } catch (Exception e) {
             throw new RuntimeException("inputfilespout: open: " + e);
         }

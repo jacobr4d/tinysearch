@@ -9,6 +9,9 @@ import java.net.URLEncoder;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jacobr4d.mapreduce.master.Utils;
 import com.jacobr4d.mapreduce.stormlite.Config;
@@ -23,7 +26,7 @@ import com.jacobr4d.mapreduce.stormlite.spout.ReadInputSpout;
 import com.jacobr4d.mapreduce.stormlite.tuple.Fields;
 import com.jacobr4d.mapreduce.stormlite.tuple.Tuple;
 
-import spark.Spark;
+import spark.Service;
 
 /**
  * Simple listener for worker creation 
@@ -32,6 +35,8 @@ import spark.Spark;
  *
  */
 public class WorkerServer {
+	private static final Logger logger = LogManager.getLogger(WorkerServer.class);
+
 	
 	/* Static after initialization */
 	int pingStatusFequencySeconds = 10;
@@ -52,21 +57,8 @@ public class WorkerServer {
     	this.storageDir = storageDir;
     	    	    	
     	/* initialize routes for spark server */
-        Spark.port(this.port);
-        registerDefineJob();
-        registerRunJob();
-        registerPushData();
-        registerShutdown();
-        
-        /* start pinging master */
-        initiateMasterPingRoutine(pingStatusFequencySeconds);
-        
-        System.out.println("Worker node startup, on port " + port);
-    }
-    
-    /* Route for Master to define new job*/
-    public void registerDefineJob() {
-    	Spark.post("/definejob", (req, res) -> {
+		Service server = Service.ignite().port(this.port).threadPool(10);
+		server.post("/definejob", (req, res) -> {
             try {            	
                 Config config = om.readValue(req.body(), Config.class);
             	
@@ -83,24 +75,16 @@ public class WorkerServer {
                 return "Job defined";
             } catch (Exception e) {
             	e.printStackTrace();
-                System.out.println("/definejob: " + e);
+                logger.info("/definejob: " + e);
                 res.status(500);
                 return e.getMessage();
             } 
         });
-    }
-    
-    /* Route for Master to start job */
-    void registerRunJob() {
-        Spark.post("/runjob", (req, res) -> {
+		server.post("/runjob", (req, res) -> {
         	cluster.startTopology();
         	return "Job Started";
         });
-    }
-    
-    /* Route for Workers to relay computation */
-    void registerPushData() {
-    	Spark.post("/pushdata/:boltName", (req, res) -> {
+		server.post("/pushdata/:boltName", (req, res) -> {
             try {
             	/* Read tuple from body */
                 Tuple tuple = om.readValue(req.body(), Tuple.class);
@@ -114,12 +98,21 @@ public class WorkerServer {
                 
                 return "OK";
             } catch (IOException e) {
-                System.out.println("/pushdata: " + e);
+                logger.info("/pushdata: " + e);
                 res.status(500);
                 return e.getMessage();
             }
 
         });
+        
+        /* start pinging master */
+        initiateMasterPingRoutine(pingStatusFequencySeconds);
+        server.get("/shutdown", (req, res) -> {
+			logger.info("shutting down...");
+    		Utils.exitInOneSecond();
+    		return "Shutting down";
+    	});
+        logger.info("Worker node startup, on port " + port);
     }
     
     void initiateMasterPingRoutine(int frequencySeconds) {
@@ -147,22 +140,14 @@ public class WorkerServer {
 					}
 
     				if (Utils.get(urlString).getResponseCode() != HttpURLConnection.HTTP_OK) {
-        				System.out.println("ping master: master not happy");
+        				logger.info("ping master: master not happy");
     				}
     			} catch (Exception e) {
-    				System.out.println("ping master: " + e);
+    				logger.info("ping master: " + e);
     			}
     		}
     	};
     	Executors.newScheduledThreadPool(1).scheduleAtFixedRate(updateStatus, 0, frequencySeconds, TimeUnit.SECONDS);
-    }
-
-    void registerShutdown() {
-    	Spark.get("/shutdown", (req, res) -> {
-			System.out.println("shutting down...");
-    		Utils.exitInOneSecond();
-    		return "Shutting down";
-    	});
     }
     
     /* Make topology for mapreduce computation on a worker given complete config */
@@ -186,16 +171,16 @@ public class WorkerServer {
     }
 
     /* launch worker */
-    public static void main(String args[]) throws IOException {
+    public static void main(String args[]) throws IOException, InterruptedException {
     	
         if (args.length < 3) {
-            System.out.println("Usage: WorkerServer [port number] [master ip]:[master port] [storage directory]");
+            logger.info("Usage: WorkerServer [portnumber] [master ip]:[master port] [storagedir]");
             System.exit(1);
         }
 
         new WorkerServer(args[0], args[1], args[2]);
         
-        System.out.println("Press [Enter] to shut down this node...");
+        logger.info("Press [Enter] to shut down this node...");
 		(new BufferedReader(new InputStreamReader(System.in))).readLine();
 		System.exit(0);
     }

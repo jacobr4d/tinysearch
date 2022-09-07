@@ -9,16 +9,21 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jacobr4d.mapreduce.stormlite.Config;
 import com.jacobr4d.mapreduce.stormlite.distributed.WorkerListUtils;
 
-import spark.Spark;
+import spark.Service;
+
 
 public class MasterServer {
+	private static final Logger logger = LogManager.getLogger(MasterServer.class);
 	
 	/* Static variables */
-	int portNumber;
+	int port;
     ObjectMapper mapper = new ObjectMapper().enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL);
     int activeWorkerThreshold = 30;
 
@@ -39,23 +44,13 @@ public class MasterServer {
 
 	
 	/* masterserver constructor */
-	public MasterServer (String portNumber) {
+	public MasterServer (String port) {
 		
-		this.portNumber = Integer.valueOf(portNumber);
+		this.port = Integer.valueOf(port);
 				
 		/* start spark server */
-        Spark.port(this.portNumber);
-        registerStatus();
-        registerWorkerStatus();
-        registerSubmitJob();
-        registerShutdown();
-        
-        System.out.println("Master node startup, on port " + portNumber);
-	}
-	
-    /* Route for user to see status */
-    public void registerStatus() {
-        Spark.get("/status", (req, res) -> {
+		Service server = Service.ignite().port(this.port).threadPool(10);
+		server.get("/status", (req, res) -> {
             StringBuilder html = new StringBuilder("<html>");
             html.append(statusPageHeader);
             html.append("<body>");
@@ -73,11 +68,7 @@ public class MasterServer {
             res.type("text/html");
             return (html.toString());
         });
-    }
-    
-    /* Route for workers to send status */
-    public void registerWorkerStatus() {
-    	Spark.get("/workerstatus", (req, res) -> {
+		server.get("/workerstatus", (req, res) -> {
         	workerStatuses.put(req.ip() + ":" + req.queryParams("port"), 
         			"port=" + req.queryParams("port") + ", " +
             		"status=" + req.queryParams("status") + ", " +
@@ -89,19 +80,15 @@ public class MasterServer {
         	res.type("text/html");
         	return "Status received";
         });
-    }
-    
-    /* Route for the user to submit a job */
-    public void registerSubmitJob() {
-    	Spark.post("/submitjob", (req, res) -> {
+		server.post("/submitjob", (req, res) -> {
     		
     		/* Init config with parameters */
             Config config = new Config();
             config.put("job", req.queryParams("jobname"));
             config.put("mapClass", req.queryParams("classname"));
             config.put("reduceClass", req.queryParams("classname"));
-            config.put("inputDir", req.queryParams("input"));
-            config.put("outputDir", req.queryParams("output"));
+            config.put("inputFile", req.queryParams("input"));
+            config.put("outputFile", req.queryParams("output"));
             config.put("spoutExecutors", "1");
             config.put("mapExecutors", req.queryParams("map"));
             config.put("reduceExecutors", req.queryParams("reduce"));
@@ -131,31 +118,30 @@ public class MasterServer {
         	res.type("text/html");
     		return "Job submitted";
     	});
-    }
+		server.get("/shutdown", (req, res) -> {
+    		shutdown();
+    		return "Shutting down";
+    	});
+		server.awaitInitialization();
+        
+        logger.info("Master node startup, on port " + port);
+	}
     
     /* shutdown master node */
     void shutdown() {
-		System.out.println("shutting down workers...");
+		logger.info("shutting down workers...");
 		for (String worker : getActiveWorkers()) {
 			try {
 				if (Utils.get("http://" + worker + "/shutdown").getResponseCode() !=
 						HttpURLConnection.HTTP_OK)
-					System.out.println("shutdown: worker " + worker + " not responding favorably to shutdown. moving on...");
+					logger.info("shutdown: worker " + worker + " not responding favorably to shutdown. moving on...");
 			} catch (IOException e) {
-				System.out.println("shutdown: worker " + worker + " not responsive to shutdown. moving on...");
+				logger.info("shutdown: worker " + worker + " not responsive to shutdown. moving on...");
 			}
 		}
 		
-		System.out.println("shutting down...");
+		logger.info("shutting down...");
     	Utils.exitInOneSecond();
-    }
-    
-    /* route for triggering shutdown remotely */
-    void registerShutdown() {
-    	Spark.get("/shutdown", (req, res) -> {
-    		shutdown();
-    		return "Shutting down";
-    	});
     }
     
 	/* Get active workers (posted a status within last 30 seconds) */
@@ -168,15 +154,15 @@ public class MasterServer {
 	}
     
     /* Launch a Master */
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
     	
         if (args.length < 1) {
-            System.out.println("Usage: MasterServer [port number]");
+            logger.info("Usage: MasterServer [port number]");
             System.exit(1);
         }
 
         new MasterServer(args[0]);
-        System.out.println("Press [Enter] to shut down this node...");
+        logger.info("Press [Enter] to shut down this node...");
 		(new BufferedReader(new InputStreamReader(System.in))).readLine();
 		System.exit(0);
     }

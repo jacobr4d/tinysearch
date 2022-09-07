@@ -38,14 +38,14 @@ public class WriteOutputBolt implements IRichBolt {
         if (!config.containsKey("storageDir"))
         	throw new RuntimeException("writeOutputBolt doesn't know storage dir");
         
-        if (!config.containsKey("outputDir"))
-        	throw new RuntimeException("writeOutputBolt doesn't know output dir");
+        if (!config.containsKey("outputFile"))
+        	throw new RuntimeException("writeOutputBolt doesn't know outputFile");
         
 		this.context = context;
 		
 		try {
  			writer = new BufferedWriter(new FileWriter(
- 					config.get("storageDir") + "/" + config.get("outputDir") + "/output.txt"));
+ 					config.get("storageDir") + "/" + config.get("outputFile")));
 	        votesForEos = new ConsensusTracker(Integer.valueOf(config.get("reduceExecutors")) * 
 	        		Integer.valueOf(config.get("numWorkers")));
 		} catch (IOException e) {
@@ -66,8 +66,7 @@ public class WriteOutputBolt implements IRichBolt {
 	public boolean execute(Tuple input) {
 		if (!input.isEndOfStream()) {
 			try {
-				String token = "(" + input.getStringByField("key") + ", " + 
-						input.getStringByField("value") + ")";
+				String token = input.getStringByField("key") + " " + input.getStringByField("value");
 				writer.write(token + "\n");
 				context.logOutput(token);
 				writer.flush();

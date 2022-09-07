@@ -15,9 +15,14 @@ public class Index {
 	
 	public String envPath;
 	public Environment env;
-	EntityStore store;
-	PrimaryIndex<Long, InvertedHit> invertedHitIndex;
-	SecondaryIndex<String, Long, InvertedHit> invertedHitsByWord;
+	public EntityStore store;
+	
+	public PrimaryIndex<Long, InvertedHit> invertedHitIndex;
+	public SecondaryIndex<String, Long, InvertedHit> invertedHitsByWord;
+	
+	public PrimaryIndex<Long, TermFrequency> termFrequencyIndex;
+	
+	public PrimaryIndex<Long, InverseDocumentFrequency> inverseDocumentFrequencyIndex;
 	
 	public Index(String envPath) {
 		this.envPath = envPath;
@@ -31,6 +36,10 @@ public class Index {
 		
 		invertedHitIndex = store.getPrimaryIndex(Long.class, InvertedHit.class);
 		invertedHitsByWord = store.getSecondaryIndex(invertedHitIndex, String.class, "word");
+		
+		termFrequencyIndex = store.getPrimaryIndex(Long.class, TermFrequency.class);
+		
+		inverseDocumentFrequencyIndex = store.getPrimaryIndex(Long.class, InverseDocumentFrequency.class);
 	}
 
 	public void close() {
@@ -40,7 +49,7 @@ public class Index {
 	
 	public void putInvertedHit(InvertedHit invertedHit) {
 		invertedHitIndex.putNoReturn(invertedHit);
-	}
+	} 
 	
 	/* get urls associated with a word */
 	public EntityCursor<InvertedHit> invertedHitsofWord(String word) {
@@ -50,4 +59,16 @@ public class Index {
 	public EntityCursor<String> words() {
 		return invertedHitsByWord.keys();
 	}
+	
+	
+	/* other */
+	
+	public void putTermFrequency(TermFrequency tf) {
+		termFrequencyIndex.putNoReturn(tf);
+	}
+	
+	public void putInverseDocumentFrequency(InverseDocumentFrequency idf) {
+		inverseDocumentFrequencyIndex.putNoReturn(idf);
+	}
+	
 }

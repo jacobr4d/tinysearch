@@ -27,6 +27,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import com.jacobr4d.mapreduce.master.MasterServer;
 import com.jacobr4d.mapreduce.stormlite.bolt.BoltDeclarer;
 import com.jacobr4d.mapreduce.stormlite.bolt.IRichBolt;
 import com.jacobr4d.mapreduce.stormlite.bolt.OutputCollector;
@@ -50,6 +54,7 @@ import com.jacobr4d.mapreduce.stormlite.tasks.SpoutTask;
  *
  */
 public class DistributedCluster implements Runnable {
+	private static final Logger logger = LogManager.getLogger(DistributedCluster.class);
 	
 	/* static */
 	ExecutorService executor = Executors.newFixedThreadPool(1);
@@ -93,7 +98,7 @@ public class DistributedCluster implements Runnable {
 	 * Starts the worker thread to process events, starting with the spouts.
 	 */
 	public void startTopology() {
-		System.out.println("starting cluster for job named " + config.get("job") + "...");
+		logger.info("starting cluster for job named " + config.get("job") + "...");
 		
 		new Thread(this).start();
 	}
@@ -111,8 +116,8 @@ public class DistributedCluster implements Runnable {
 			}
 		}
 		
-		System.out.println("shutting down cluster for job named " + config.get("job") + "...");
-		System.out.println(executor.shutdownNow().size() + " tasks not executed...");
+		logger.info("shutting down cluster for job named " + config.get("job") + "...");
+		logger.info(executor.shutdownNow().size() + " tasks not executed...");
 		
 		closeSpoutInstances();
 		closeBoltInstances();
