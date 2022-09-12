@@ -1,5 +1,6 @@
 package com.jacobr4d.crawler.utils;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
@@ -7,18 +8,16 @@ import java.util.Set;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.jacobr4d.crawler.HttpAgent;
+
 public class RobotsInfo {
 	private static final Logger logger = LogManager.getLogger(RobotsInfo.class);
 
 	/* If CDD not specified, "reasonable" is 1 second */
-	public int delay = 3; 
+	public int delay = 0; 
 	public Set<String> disallowedPaths = new HashSet<String>();
 	public Instant lastSentGet = Instant.now();
 	
-	
-	public RobotsInfo() {
-		//default settings
-	}
 	
 	public RobotsInfo(String text) {
 		String[] records = text.split("(\\r\\n){2,}|\\n{2,}");
@@ -38,6 +37,10 @@ public class RobotsInfo {
 				}
 			}
 		}
+	}
+
+	public RobotsInfo() {
+		// TODO Auto-generated constructor stub
 	}
 
 	public String toString() {
@@ -71,9 +74,9 @@ public class RobotsInfo {
 	
 	/* only parse disallow and crawl-delay fields */
 	void parseRecord(String record) {
-		 logger.debug("----RECORD PARSED----");
-		 logger.debug(record);
-		 logger.debug("----RECORD----");
+//		 logger.debug("----RECORD PARSED----");
+//		 logger.debug(record);
+//		 logger.debug("----RECORD----");
 		for (String line : record.split("\\r\\n|\\r|\\n")) {
 			line = stripComments(line);
 			if (line.contains(":")) {
@@ -111,5 +114,11 @@ public class RobotsInfo {
 		lastSentGet = Instant.now();
 	}
 
+	public static void main(String[] args) throws IOException {
+		URLInfo url = new URLInfo(args[0]);
+		HttpAgent agent = new HttpAgent();
+		RobotsInfo info = agent.getRobotsInfo(url);
+		System.out.println(info);
+	}
 
 }

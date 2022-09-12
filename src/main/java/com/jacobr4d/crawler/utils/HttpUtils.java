@@ -1,37 +1,10 @@
 package com.jacobr4d.crawler.utils;
 
-import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLConnection;
 import java.util.Base64;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import javax.net.ssl.HttpsURLConnection;
-
 public class HttpUtils {
-    
-    /* Make head request with no data */
-	public static HttpURLConnection head(URLInfo url) throws IOException {
-		URLConnection urlCon = (new URL(url.toString())).openConnection();
-		HttpURLConnection con = url.isSecure() ? (HttpsURLConnection) urlCon : (HttpURLConnection) urlCon;
-		con.setRequestMethod("HEAD");
-		con.setRequestProperty("User-Agent", "cis455crawler");
-		con.setConnectTimeout(5000); /* 5s timeout */
-		con.setReadTimeout(5000);
-    	return con;
-    }	
-    
-    /* Make get request with no data */
-	public static HttpURLConnection get(URLInfo url) throws IOException {
-		URLConnection urlCon = (new URL(url.toString())).openConnection();
-		HttpURLConnection con = url.isSecure() ? (HttpsURLConnection) urlCon : (HttpURLConnection) urlCon;
-		con.setRequestProperty("User-Agent", "cis455crawler");
-		con.setConnectTimeout(5000); /* 5s timeout */
-		con.setReadTimeout(5000);
-    	return con;
-    }
 
 	
 	/* Helpful for shutting down */

@@ -1,7 +1,5 @@
 package com.jacobr4d.crawler.utils;
 
-import jdk.internal.org.jline.reader.impl.completer.NullCompleter;
-
 /**
  * Helper class that shows how to parse URLs to obtain host name, port number
  * and file path
@@ -54,6 +52,12 @@ public class URLInfo {
             }
         }
         // System.out.println(hostName + " " + portNo + " " + filePath + " " + isSecure);
+    }
+    
+    @Override
+    public int hashCode() {
+		return hostName.hashCode();
+    	
     }
 
     public URLInfo(String hostName, String filePath) {
