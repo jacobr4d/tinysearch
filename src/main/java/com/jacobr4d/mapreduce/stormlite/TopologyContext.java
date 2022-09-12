@@ -112,7 +112,7 @@ public class TopologyContext {
 	}
 	
 	public void logOutput(String token) {
-		if (sampleResults.size() < 100)
+		if (sampleResults.size() < 10)
 			sampleResults.add(token);
 	}
 	

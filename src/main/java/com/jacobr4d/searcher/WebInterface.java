@@ -9,6 +9,7 @@ import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.jacobr4d.crawler.utils.HttpUtils;
 import com.jacobr4d.indexer.index.Index;
 import com.jacobr4d.indexer.index.InvertedHit;
 import com.sleepycat.persist.EntityCursor;
@@ -86,8 +87,9 @@ public class WebInterface {
 	        	return scoreB.compareTo(scoreA);
 	        })
 	        .forEach((output) -> {
+	        	String[] toks = output.split("\\s+");
 				html.append("<li>");
-				html.append(output);
+	    		html.append(toks[0] + " <a href=\"" + toks[1] + "\">" + toks[1] + "</a>");
 				html.append("</li>");
 	        });
 			

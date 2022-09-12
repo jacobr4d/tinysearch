@@ -27,24 +27,36 @@ public class DataUploader {
 	}
 	
 	public void uploadData() throws IOException {
-		Stream<String> hits = Files.lines(Paths.get("output/mapreduce/hits"));
-		hits.forEach((hit) -> {
-			String[] words = hit.split("\\s+");
-			InvertedHit o = new InvertedHit();
-			o.word = words[0];
-			o.url = words[1];
-			index.putInvertedHit(o);
-		});
-		hits.close();
+//		Stream<String> hits = Files.lines(Paths.get("output/mapreduce/hits"));
+//		hits.forEach((hit) -> {
+//			String[] words = hit.split("\\s+");
+//			InvertedHit o = new InvertedHit();
+//			o.word = words[0];
+//			o.url = words[1];
+//			index.putInvertedHit(o);
+//		});
+//		hits.close();
+		
+		logger.info("populating tfs and inverted index");
 		Stream<String> tfs = Files.lines(Paths.get("output/mapreduce/tfs"));
 		tfs.forEach((tf) -> {
 			String[] words = tf.split("\\s+");
+			
+			/* put tfs */
 			TermFrequency o = new TermFrequency();
 			o.wordUrl = words[0] + " " + words[1];
 			o.frequency = words[2];
 			index.putTermFrequency(o);
+			
+			/* put inverted hits */
+			InvertedHit invertedHit = new InvertedHit();
+			invertedHit.word = words[0];
+			invertedHit.url = words[1];
+			index.putInvertedHit(invertedHit);
 		});
 		tfs.close();
+		
+		logger.info("populating idfs");
 		Stream<String> idfs = Files.lines(Paths.get("output/mapreduce/idfs"));
 		idfs.forEach((idf) -> {
 			String[] words = idf.split("\\s+");

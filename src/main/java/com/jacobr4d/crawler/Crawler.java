@@ -47,7 +47,7 @@ public class Crawler {
 	public AtomicInteger documentCount = new AtomicInteger(0);
 	List<Worker> workers = new ArrayList<Worker>();
 	URLSet urlSet = new URLSet(this);
-	Set<String> hashSet = new HashSet<String>();
+	ContentSet contentSet = new ContentSet();
 	
 	/* INDEXER */
 	public AtomicInteger hitCount = new AtomicInteger(0);
@@ -80,7 +80,7 @@ public class Crawler {
 				frontierSize += worker.urlFrontier.size();
 			html.append("<h2>FRONTIER SIZE (IN MEMORY): " + frontierSize + "</h2>");
 			html.append("<h2>URL SET SIZE (IN MEMORY): " + urlSet.size() + "</h2>");
-			html.append("<h2>HASH SET SIZE (IN MEMORY): " + hashSet.size() + "</h2>");
+			html.append("<h2>CONTENT SET SIZE (IN MEMORY): " + contentSet.size() + "</h2>");
 			int robotsSize = 0;
 			for (Worker worker : workers)
 				robotsSize += worker.robots.size();
@@ -246,17 +246,7 @@ public class Crawler {
 			doc.url = url.toString();
 			doc.contentType = type;
 			
-//			com.jacobr4d.crawler.repository.Document stored = crawler.repo.getDocument(url);
-
-			// TO DO
-			// TO DO
-			// TO DO
-			// TO DO
-			// TO DO
-// TO DO
-			com.jacobr4d.crawler.repository.Document stored = null;
-			
-			
+			com.jacobr4d.crawler.repository.Document stored = crawler.repo.getDocument(url);	
 			if (stored == null) {
 				
 				/* Get Robots, check if disallows or delays */
@@ -313,16 +303,14 @@ public class Crawler {
 			
 			/* content seen check */
 			String hash = HashUtils.md5(doc.raw);
-			synchronized (hashSet) {
-//				if (hashSet.contains(hash)) {
-//					return;
-//				}
-//				hashSet.add(hash);
+			if (contentSet.isDuplicateContent(hash)) {
+				logger.debug("duplicate contents");
+				return;
 			}
 			
 			/* store document if we didn't recover it from database */
 			if (stored == null)
-//				crawler.repo.putDocument(doc);
+				crawler.repo.putDocument(doc);
 				
 			logger.info(crawler.documentCount.incrementAndGet());
 			
@@ -334,7 +322,7 @@ public class Crawler {
 			 * 1. filter is word [a-zA-Z]
 			 * 3. regularize case (lowercase)
 			 * 2. filter is not stop word
-			 * 4. apply stemmer, ez with maven
+			 * 4. apply stemmer, ez with maven (not stemming cause error :/)
 			 * */
 			/* print text (test) */
 			for (String word : document.text().split("\\s+")) {
@@ -347,14 +335,14 @@ public class Crawler {
 					continue;
 				}
 //				InvertedHit invertedHit = new InvertedHit();
-//				invertedHit.word = stemmer.stem(word);
+//				invertedHit.word = word;
 //				invertedHit.url = url.toString();
-//				index.putInvertedHit(invertedHit);
-//				try {
-//					hitFileWriter.write(word + " " + url + "\n");
-//				} catch (IOException e) {
-//					logger.error(e);
-//				}
+////				index.putInvertedHit(invertedHit);
+				try {
+					hitFileWriter.write(word + " " + url + "\n");
+				} catch (IOException e) {
+					logger.error(e);
+				}
 				hitCount.incrementAndGet();
 			}
 			
