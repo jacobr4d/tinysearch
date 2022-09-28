@@ -79,6 +79,7 @@ public class WriteOutputBolt implements IRichBolt {
     			 * we don't need to wait for consensus among multiple writeOutputBolts
     			 * because there is only one */
 				context.declareState(STATE.IDLE);
+				System.exit(0);
 			}
 		}
 		/* doesn't matter what we return */

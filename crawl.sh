@@ -5,10 +5,9 @@ JAVA_PROGRAM="com.jacobr4d.crawler.Crawler"
 
 MAXSIZEMB="1"
 SEED="input/seed"
-REPOSITORY="output/repository"
-INDEX="output/index"
-MAPREDUCEOUT="output/mapreduce/hits"
-JAVA_PROGRAM_ARGS="$MAXSIZEMB $SEED $REPOSITORY $INDEX $MAPREDUCEOUT"
+HITSPATH="output/hits"
+LINKSPATH="output/links"
+JAVA_PROGRAM_ARGS="$MAXSIZEMB $SEED $HITSPATH $LINKSPATH"
 
 rm -rf output 
 mvn compile

@@ -17,14 +17,21 @@ public class Index {
 	public Environment env;
 	public EntityStore store;
 	
+	/* INVERTED HITS */
 	public PrimaryIndex<Long, InvertedHit> invertedHitIndex;
 	public SecondaryIndex<String, Long, InvertedHit> invertedHitsByWord;
 	
+	/* TFS */
 	public PrimaryIndex<Long, TermFrequency> termFrequencyIndex;
 	public SecondaryIndex<String, Long, TermFrequency> termFrequencyByWordUrl;
 	
+	/* IDFS */
 	public PrimaryIndex<Long, InverseDocumentFrequency> inverseDocumentFrequencyIndex;
 	public SecondaryIndex<String, Long, InverseDocumentFrequency> inverseDocumentFrequencyByWord;
+	
+	/* PAGERANKS */
+	public PrimaryIndex<Long, PageRank> pageRankIndex;
+	public SecondaryIndex<String, Long, PageRank> pageRankByUrl;
 	
 	public Index(String envPath) {
 		this.envPath = envPath;
@@ -44,6 +51,9 @@ public class Index {
 		
 		inverseDocumentFrequencyIndex = store.getPrimaryIndex(Long.class, InverseDocumentFrequency.class);
 		inverseDocumentFrequencyByWord = store.getSecondaryIndex(inverseDocumentFrequencyIndex, String.class, "word");
+		
+		pageRankIndex = store.getPrimaryIndex(Long.class, PageRank.class);
+		pageRankByUrl = store.getSecondaryIndex(pageRankIndex, String.class, "url");
 	}
 
 	public void close() {
@@ -51,11 +61,13 @@ public class Index {
 	    env.close();
 	}
 	
+	
+	/* INVERTED INDEX */
+	
 	public void putInvertedHit(InvertedHit invertedHit) {
 		invertedHitIndex.putNoReturn(invertedHit);
 	} 
 	
-	/* get urls associated with a word */
 	public EntityCursor<InvertedHit> invertedHitsofWord(String word) {
 		return invertedHitsByWord.subIndex(word).entities();
 	}
@@ -64,23 +76,42 @@ public class Index {
 		return invertedHitsByWord.keys();
 	}
 	
-	/* other */
+	
+	/* TFS */
 	
 	public void putTermFrequency(TermFrequency tf) {
 		termFrequencyIndex.putNoReturn(tf);
 	}
 	
-	public void putInverseDocumentFrequency(InverseDocumentFrequency idf) {
-		inverseDocumentFrequencyIndex.putNoReturn(idf);
-	}
-	
-	/* get */
 	public double getTermFrequency(String word, String url) {
 		return Double.valueOf(termFrequencyByWordUrl.get(word + " " + url).frequency);
+	}
+	
+	
+	/* IDFS */
+	
+	public void putInverseDocumentFrequency(InverseDocumentFrequency idf) {
+		inverseDocumentFrequencyIndex.putNoReturn(idf);
 	}
 	
 	public double getInverseDocumentFrequency(String word) {
 		return Double.valueOf(inverseDocumentFrequencyByWord.get(word).inverseDocumentFrequency);
 	}
 	
+	
+	/* PAGERANKS */
+	
+	public void putPageRank(PageRank pageRank) {
+		pageRankIndex.putNoReturn(pageRank);
+	}
+	
+	public double getPageRank(String url) {
+		return Double.valueOf(pageRankByUrl.get(url).pageRank);
+	}
+	
 }
+
+
+
+
+

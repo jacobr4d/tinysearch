@@ -25,7 +25,6 @@ import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
 
-import com.jacobr4d.crawler.repository.Repository;
 import com.jacobr4d.crawler.utils.HashUtils;
 import com.jacobr4d.crawler.utils.RobotsInfo;
 import com.jacobr4d.crawler.utils.URLInfo;
@@ -39,7 +38,6 @@ public class Crawler {
 	/* FIELDS */
 	public static int THREADS = 100;
 	public int maxDocSizeMB;
-	Repository repo;
 	
 	/* STATE */
 	public boolean quit = false;
@@ -53,19 +51,22 @@ public class Crawler {
 	public AtomicInteger hitCount = new AtomicInteger(0);
 	public Set<String> stopwords = new HashSet<String>();
 	public PorterStemmer stemmer = new PorterStemmer();
-//	Index index;
 	FileWriter hitFileWriter;
-	
+	FileWriter linkFileWriter;
 	
     /* Constructor */
-  	public Crawler(String maxSizeMB, String seedPath, String repoPath, String indexPath, String hitsPath) throws IOException, URISyntaxException {
+  	public Crawler(String maxSizeMB, String seedPath, String hitsPath, String linksPath) throws IOException, URISyntaxException {
 		
 		/* Indexer */
 		this.stopwords = Files.lines(Paths.get("input/stopwords")).collect(Collectors.toSet());
-//		this.index = new Index(indexPath);
+		
 		if (!new File(hitsPath).getParentFile().exists() && !new File(hitsPath).getParentFile().mkdirs())
 			throw new RuntimeException("unable to make dir " + new File(hitsPath).getParentFile());
+		if (!new File(linksPath).getParentFile().exists() && !new File(linksPath).getParentFile().mkdirs())
+			throw new RuntimeException("unable to make dir " + new File(linksPath).getParentFile());
+		
 		this.hitFileWriter = new FileWriter(hitsPath);
+		this.linkFileWriter = new FileWriter(linksPath);
 		
 		Spark.port(45555);
 		Spark.get("/", (req, res) -> {
@@ -94,23 +95,19 @@ public class Crawler {
 		
 		/* CRAWLER */
 		this.maxDocSizeMB = Integer.valueOf(maxSizeMB);
-		this.repo = new Repository(repoPath);
 		
 		for (int i = 0; i < THREADS; i++) {
-			Worker worker = new Worker(this);
-			workers.add(worker);
+			workers.add(new Worker(this));
 		}
 		
-		List<String> seedURLs = Files.lines(Paths.get("input/seed")).collect(Collectors.toList());
-		for (String seedURL : seedURLs) {
+		for (String seedURL : Files.lines(Paths.get("input/seed")).collect(Collectors.toList())) {
 			try {
 				addURL(new URLInfo(seedURL));
 			} catch (RuntimeException e) {
 				e.printStackTrace();
 				continue;
 			}
-		}
-		
+		}		
 
 		for (int i = 0; i < THREADS; i++)
 			workers.get(i).start();
@@ -133,10 +130,10 @@ public class Crawler {
 				logger.debug("master wait: " + e);
 			}
 		
-		this.repo.close();
+//		this.repo.close();
 //		this.index.close();
-		this.hitFileWriter.close();
-		
+		this.hitFileWriter.close();		
+		this.linkFileWriter.close();
 	}
 
 	public class Worker extends Thread {
@@ -181,14 +178,14 @@ public class Crawler {
 				}	
 			}
 			
-			/* send HEAD, follow one redirect */
+			/* SEND HEAD, do some checks */
 			HttpURLConnection head;
 			try {
 				head = httpAgent.head(url);
 				int code = head.getResponseCode();
 				if (code == HttpURLConnection.HTTP_SEE_OTHER || code == HttpURLConnection.HTTP_MOVED_PERM || code == HttpURLConnection.HTTP_MOVED_TEMP) {
 					String location = head.getHeaderField("Location");
-					URLInfo oldURL = url.copy();
+//					URLInfo oldURL = url.copy();
 					if (location.startsWith("/")) {
 						url = url.setFilePath(location);
 					} else {
@@ -211,7 +208,6 @@ public class Crawler {
 				return;
 			}
 
-			/* see if HEAD checks pass */
 			String modified = head.getHeaderField("Last-Modified");
 			if (modified == null) 
 				modified = head.getHeaderField("last-modified");
@@ -221,9 +217,7 @@ public class Crawler {
 			String type = head.getHeaderField("Content-Type");
 			if (type == null) 
 				type = head.getHeaderField("content-type");
-			
-			head.disconnect();
-			
+						
 			if (length == null) {
 				logger.debug("no length ");
 				return;
@@ -241,81 +235,62 @@ public class Crawler {
 				return;
 			}
 
-			/* If we have the file, and it hasn't been changed, parse our version */
-			com.jacobr4d.crawler.repository.Document doc = new com.jacobr4d.crawler.repository.Document();
-			doc.url = url.toString();
-			doc.contentType = type;
-			
-			com.jacobr4d.crawler.repository.Document stored = crawler.repo.getDocument(url);	
-			if (stored == null) {
-				
-				/* Get Robots, check if disallows or delays */
-				try {
-					if (robots.containsKey(url.getHostName())) {
-						info = robots.get(url.getHostName());
-					} else {
-						logger.debug("parsing robots, " + url.getHostName());
-						info = httpAgent.getRobotsInfo(url);
-						robots.put(url.getHostName(), info);
-					}
-				} catch (IOException e) {
-					logger.debug("inaccessible robots");
-					return;
-				} catch (RuntimeException e) {
-					logger.debug("errant robots");
-					return;
+			/* GET ROBOTS, do some checks */
+			try {
+				if (robots.containsKey(url.getHostName())) {
+					info = robots.get(url.getHostName());
+				} else {
+					logger.debug("parsing robots, " + url.getHostName());
+					info = httpAgent.getRobotsInfo(url);
+					robots.put(url.getHostName(), info);
 				}
-				if (info.disallows(url)) {
-					logger.debug("disallowed, " + url);
-					return;
-				}
-				if (info.delays()) {
-					logger.debug("delayed, " + url);
-					urlFrontier.add(url);
-					Thread.yield();
-					return;
-				}	
-				
-				/* send GET */
-				byte[] raw;
-				try {
-					HttpURLConnection get = httpAgent.get(url);
-					info.updateLastAccessed();
-					if (get.getResponseCode() != HttpURLConnection.HTTP_OK) {
-						logger.debug("inaccessible");
-						get.disconnect();
-						return;
-					} else {
-						raw = IOUtils.toByteArray(get.getInputStream());
-						doc.raw = raw;
-						get.disconnect();
-						logger.debug("downloading");
-					}
-				} catch (IOException e) {
-					logger.debug("get failed");
-					return;
-				}
-				
-			} else {
-				logger.debug(url + " recovering from database...");
-				doc = stored;
+			} catch (IOException e) {
+				logger.debug("inaccessible robots");
+				return;
+			} catch (RuntimeException e) {
+				logger.debug("errant robots");
+				return;
 			}
+			if (info.disallows(url)) {
+				logger.debug("disallowed, " + url);
+				return;
+			}
+			if (info.delays()) {
+				logger.debug("delayed, " + url);
+				urlFrontier.add(url);
+				Thread.yield();
+				return;
+			}	
+			
+			/* GET */
+			byte[] raw;
+			try {
+				HttpURLConnection get = httpAgent.get(url);
+				info.updateLastAccessed();
+				if (get.getResponseCode() != HttpURLConnection.HTTP_OK) {
+					logger.debug("inaccessible");
+					return;
+				} else {
+					raw = IOUtils.toByteArray(get.getInputStream());
+					logger.debug("downloading");
+				}
+			} catch (IOException e) {
+				logger.debug("get failed");
+				return;
+			}
+				
 			
 			/* content seen check */
-			String hash = HashUtils.md5(doc.raw);
+			String hash = HashUtils.md5(raw);
 			if (contentSet.isDuplicateContent(hash)) {
 				logger.debug("duplicate contents");
 				return;
 			}
-			
-			/* store document if we didn't recover it from database */
-			if (stored == null)
-				crawler.repo.putDocument(doc);
 				
 			logger.info(crawler.documentCount.incrementAndGet());
 			
 			/* parse document */
-			org.jsoup.nodes.Document document = Jsoup.parse(new String(doc.raw, StandardCharsets.UTF_8), doc.url);
+			org.jsoup.nodes.Document document = Jsoup.parse(new String(raw, StandardCharsets.UTF_8), url.toString());
 			
 			/* Stemming steps:
 			 * 1. remove common punctuation (,.)
@@ -326,18 +301,11 @@ public class Crawler {
 			 * */
 			/* print text (test) */
 			for (String word : document.text().split("\\s+")) {
-				word.replaceAll("[,.]", "");
-				if (!word.matches("^[a-zA-Z]+$")) {
+				word = word.replaceAll("[,.]", "").toLowerCase();
+				if (!word.matches("^[a-z]+$"))
 					continue;
-				}
-				word = word.toLowerCase();
-				if (stopwords.contains(word)) {
+				if (stopwords.contains(word))
 					continue;
-				}
-//				InvertedHit invertedHit = new InvertedHit();
-//				invertedHit.word = word;
-//				invertedHit.url = url.toString();
-////				index.putInvertedHit(invertedHit);
 				try {
 					hitFileWriter.write(word + " " + url + "\n");
 				} catch (IOException e) {
@@ -351,10 +319,15 @@ public class Crawler {
 				String newURLString = link.absUrl("href");
 				try {
 					URLInfo newURL = new URLInfo(newURLString);
+					
+					linkFileWriter.write(url.toString() + " " + newURL.toString() + "\n");
+					
 					/* check if seen url */
 					urlSet.submitURL(newURL);
 				} catch (RuntimeException e) {
 					logger.debug("link unparsible");
+				} catch (IOException e) {
+					logger.error(e);
 				}
 			}
 		}
@@ -362,12 +335,12 @@ public class Crawler {
 	
 	public static void main(String args[]) throws IOException, URISyntaxException {
 
-        if (args.length != 5) {
-            logger.info("Usage: crawler [maxsizemb] [seed] [repo] [index] [hits]");
+        if (args.length != 4) {
+            logger.info("Usage: crawler [maxsizemb] [seedPath] [hitsPath] [linksPath]");
             System.exit(1);
         }
 
-        Crawler crawler = new Crawler(args[0], args[1], args[2], args[3], args[4]);
+        Crawler crawler = new Crawler(args[0], args[1], args[2], args[3]);
         logger.debug("Press [Enter] to shut down...");
 		(new BufferedReader(new InputStreamReader(System.in))).readLine();
 		crawler.shutdown();

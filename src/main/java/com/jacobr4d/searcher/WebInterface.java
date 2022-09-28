@@ -9,7 +9,6 @@ import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.jacobr4d.crawler.utils.HttpUtils;
 import com.jacobr4d.indexer.index.Index;
 import com.jacobr4d.indexer.index.InvertedHit;
 import com.sleepycat.persist.EntityCursor;

@@ -11,6 +11,7 @@ import org.apache.logging.log4j.Logger;
 import com.jacobr4d.indexer.index.Index;
 import com.jacobr4d.indexer.index.InverseDocumentFrequency;
 import com.jacobr4d.indexer.index.InvertedHit;
+import com.jacobr4d.indexer.index.PageRank;
 import com.jacobr4d.indexer.index.TermFrequency;
 
 public class DataUploader {
@@ -27,18 +28,9 @@ public class DataUploader {
 	}
 	
 	public void uploadData() throws IOException {
-//		Stream<String> hits = Files.lines(Paths.get("output/mapreduce/hits"));
-//		hits.forEach((hit) -> {
-//			String[] words = hit.split("\\s+");
-//			InvertedHit o = new InvertedHit();
-//			o.word = words[0];
-//			o.url = words[1];
-//			index.putInvertedHit(o);
-//		});
-//		hits.close();
 		
 		logger.info("populating tfs and inverted index");
-		Stream<String> tfs = Files.lines(Paths.get("output/mapreduce/tfs"));
+		Stream<String> tfs = Files.lines(Paths.get("output/tfs"));
 		tfs.forEach((tf) -> {
 			String[] words = tf.split("\\s+");
 			
@@ -57,7 +49,7 @@ public class DataUploader {
 		tfs.close();
 		
 		logger.info("populating idfs");
-		Stream<String> idfs = Files.lines(Paths.get("output/mapreduce/idfs"));
+		Stream<String> idfs = Files.lines(Paths.get("output/idfs"));
 		idfs.forEach((idf) -> {
 			String[] words = idf.split("\\s+");
 			InverseDocumentFrequency o = new InverseDocumentFrequency();
@@ -67,10 +59,23 @@ public class DataUploader {
 		});
 		idfs.close();
 		
+		logger.info("populating prs");
+		Stream<String> prs = Files.lines(Paths.get("output/prs"));
+		prs.forEach((pr) -> {
+			String[] words = pr.split("\\s+");
+			PageRank o = new PageRank();
+			o.url = words[0];
+			o.pageRank = words[1];
+			index.putPageRank(o);
+		});
+		prs.close();
+		
+		
 		/* PRINT STATS */
-		logger.info("HITS (keyed by word<space>url) " + index.invertedHitIndex.count());
-		logger.info("TFS (keyed by word<space>url) " + index.termFrequencyIndex.count());
-		logger.info("IDFS (keyed by word) " + index.inverseDocumentFrequencyIndex.count());
+		logger.info("HITS (by word<space>url) " + index.invertedHitIndex.count());
+		logger.info("TFS (by word<space>url) " + index.termFrequencyIndex.count());
+		logger.info("IDFS (by word) " + index.inverseDocumentFrequencyIndex.count());
+		logger.info("PRS (by url) " + index.pageRankIndex.count());
 	}
 	
 	public static void main(String[] args) throws IOException {
