@@ -43,32 +43,33 @@ public class WebInterface {
 		server.post("/search", (req, res) -> {
 			String query = req.queryParams("query");
 			String[] words = query.split("\\s+");
+			String term = words[0];
 			
-			/* get relevant urls */
-			List<String> urlList = new ArrayList<String>();
-			EntityCursor<InvertedHit> hits = index.invertedHitsofWord(words[0]);
+			/* get matches, up to 100*/
+			List<String> matches = new ArrayList<String>();
+			EntityCursor<InvertedHit> hits = index.invertedHitsofWord(term);
 			try {
 				int count = 0;
 				for (InvertedHit hit = hits.first(); hit != null && count++ < MAX_URLS; hit = hits.next()) {
-					urlList.add(hit.url);
+					matches.add(hit.url);
 				}
 			} finally {
 				hits.close();
 			}
 			
-			System.out.println(urlList);
+			System.out.println(matches);
 			
 			/* determine scores */
-			List<String> outputs = new ArrayList<String>();
-			for (String url : urlList) {
+			List<String> scoreurls = new ArrayList<String>();
+			for (String url : matches) {
 				double tf = index.getTermFrequency(words[0], url);
-				double idf = index.getInverseDocumentFrequency(words[0]);
-				double score = tf * idf;
-				outputs.add("" + score + " " + url);
+				double idf = index.getInverseDocumentFrequency(term);
+				double pr = index.getPageRank(url);
+				double score = tf * idf * pr;
+				scoreurls.add("" + score + " " + url);
 			}
 			
-			
-			/* build response */
+			/* display results on results page */
 			StringBuilder html = new StringBuilder();
 			html.append("<!DOCTYPE html><html>");
 			html.append("<head>");
@@ -77,18 +78,13 @@ public class WebInterface {
 			html.append("Query: " + words[0]);
 			html.append("<ul>");
 			
-			outputs.stream()
+			scoreurls.stream()
 	        .sorted((a, b) -> {
-	        	String[] wordsA = a.split("\\s+");
-	        	String[] wordsB = b.split("\\s+");
-	        	Double scoreA = Double.valueOf(wordsA[0]);
-	        	Double scoreB = Double.valueOf(wordsB[0]);
-	        	return scoreB.compareTo(scoreA);
+	        	return Double.valueOf(b.split("\\s+")[0]).compareTo(Double.valueOf(a.split("\\s+")[0]));
 	        })
-	        .forEach((output) -> {
-	        	String[] toks = output.split("\\s+");
+	        .forEach((scoreurl) -> {
 				html.append("<li>");
-	    		html.append(toks[0] + " <a href=\"" + toks[1] + "\">" + toks[1] + "</a>");
+	    		html.append(scoreurl.split("\\s+")[0] + " <a href=\"" + scoreurl.split("\\s+")[1] + "\">" + scoreurl.split("\\s+")[1] + "</a>");
 				html.append("</li>");
 	        });
 			
